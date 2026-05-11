@@ -19,7 +19,6 @@ async function saveTranscript(channel, closedBy, guild) {
 
         allMessages.reverse();
 
-        // Group consecutive messages from same author
         const groupedMessages = [];
         let currentGroup = null;
 
@@ -52,14 +51,12 @@ async function saveTranscript(channel, closedBy, guild) {
             const usernameColor = group.authorBot ? '#5865f2' : getColorForUser(group.authorId);
 
             const msgsHTML = (await Promise.all(group.messages.map(async m => {
-                // Fix mentions
                 const content = m.content ? `<div class="text">${escapeHTML(m.content)
                     .replace(/&lt;@!?(\d+)&gt;/g, '<span class="mention">@user</span>')
                     .replace(/&lt;@&amp;(\d+)&gt;/g, '<span class="mention">@role</span>')
                     .replace(/&lt;#(\d+)&gt;/g, '<span class="mention">#channel</span>')
                 }</div>` : '';
 
-                // Handle embeds
                 const embedsHTML = m.embeds.map(embed => {
                     const color = embed.color ? `#${embed.color.toString(16).padStart(6, '0')}` : '#5865f2';
                     const fieldsHTML = embed.fields.map(f => `
@@ -79,7 +76,6 @@ async function saveTranscript(channel, closedBy, guild) {
                     `;
                 }).join('');
 
-                // Handle attachments — download and embed as base64
                 const attachmentsHTML = (await Promise.all(Array.from(m.attachments.values()).map(async a => {
                     try {
                         if (a.contentType && a.contentType.startsWith('image/')) {
@@ -89,7 +85,7 @@ async function saveTranscript(channel, closedBy, guild) {
                             const dataUrl = `data:${a.contentType};base64,${base64}`;
                             return `<div class="attachment"><img src="${dataUrl}" alt="${escapeHTML(a.name)}" /></div>`;
                         } else if (a.contentType && a.contentType.startsWith('video/')) {
-                            return `<div class="attachment"><video controls><source src="${a.url}" type="${a.contentType}"></video></div>`;
+                            return `<div class="attachment file"><a href="${a.url}" target="_blank">🎥 ${escapeHTML(a.name)}</a></div>`;
                         }
                         return `<div class="attachment file"><a href="${a.url}" target="_blank">📎 ${escapeHTML(a.name)}</a></div>`;
                     } catch (e) {
@@ -250,7 +246,6 @@ async function saveTranscript(channel, closedBy, guild) {
             border-radius: 4px;
             cursor: pointer;
         }
-        .attachment video { max-width: min(400px, 100%); border-radius: 4px; }
         .attachment.file a { color: #00aff4; text-decoration: none; font-size: 14px; }
         .attachment.file a:hover { text-decoration: underline; }
         .footer {
