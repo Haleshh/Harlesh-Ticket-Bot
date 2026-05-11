@@ -42,7 +42,7 @@ async function saveTranscript(channel, closedBy, guild) {
             }
         });
 
-        const messagesHTML = groupedMessages.map(group => {
+        const messagesHTML = (await Promise.all(groupedMessages.map(async group => {
             const time = new Date(group.firstTimestamp).toLocaleString('en-US', {
                 month: 'numeric', day: 'numeric', year: 'numeric',
                 hour: 'numeric', minute: '2-digit', hour12: true
@@ -51,7 +51,7 @@ async function saveTranscript(channel, closedBy, guild) {
             const botBadge = group.authorBot ? '<span class="bot-badge">APP</span>' : '';
             const usernameColor = group.authorBot ? '#5865f2' : getColorForUser(group.authorId);
 
-            const msgsHTML = group.messages.map(m => {
+            const msgsHTML = (await Promise.all(group.messages.map(async m => {
                 // Fix mentions
                 const content = m.content ? `<div class="text">${escapeHTML(m.content)
                     .replace(/&lt;@!?(\d+)&gt;/g, '<span class="mention">@user</span>')
@@ -79,19 +79,26 @@ async function saveTranscript(channel, closedBy, guild) {
                     `;
                 }).join('');
 
-                // Handle attachments using proxyURL
-                const attachmentsHTML = Array.from(m.attachments.values()).map(a => {
-                    const proxyUrl = a.proxyURL || a.url;
-                    if (a.contentType && a.contentType.startsWith('image/')) {
-                        return `<div class="attachment"><a href="${proxyUrl}" target="_blank"><img src="${proxyUrl}" alt="${escapeHTML(a.name)}" /></a></div>`;
-                    } else if (a.contentType && a.contentType.startsWith('video/')) {
-                        return `<div class="attachment"><video controls><source src="${proxyUrl}" type="${a.contentType}"></video></div>`;
+                // Handle attachments — download and embed as base64
+                const attachmentsHTML = (await Promise.all(Array.from(m.attachments.values()).map(async a => {
+                    try {
+                        if (a.contentType && a.contentType.startsWith('image/')) {
+                            const response = await fetch(a.url);
+                            const buffer = await response.arrayBuffer();
+                            const base64 = Buffer.from(buffer).toString('base64');
+                            const dataUrl = `data:${a.contentType};base64,${base64}`;
+                            return `<div class="attachment"><img src="${dataUrl}" alt="${escapeHTML(a.name)}" /></div>`;
+                        } else if (a.contentType && a.contentType.startsWith('video/')) {
+                            return `<div class="attachment"><video controls><source src="${a.url}" type="${a.contentType}"></video></div>`;
+                        }
+                        return `<div class="attachment file"><a href="${a.url}" target="_blank">📎 ${escapeHTML(a.name)}</a></div>`;
+                    } catch (e) {
+                        return `<div class="attachment file"><a href="${a.url}" target="_blank">📎 ${escapeHTML(a.name)}</a></div>`;
                     }
-                    return `<div class="attachment file"><a href="${proxyUrl}" target="_blank">📎 ${escapeHTML(a.name)}</a></div>`;
-                }).join('');
+                }))).join('');
 
                 return `${content}${embedsHTML}${attachmentsHTML}`;
-            }).join('');
+            }))).join('');
 
             return `
                 <div class="message-group">
@@ -106,7 +113,7 @@ async function saveTranscript(channel, closedBy, guild) {
                     </div>
                 </div>
             `;
-        }).join('');
+        }))).join('');
 
         const html = `
 <!DOCTYPE html>
