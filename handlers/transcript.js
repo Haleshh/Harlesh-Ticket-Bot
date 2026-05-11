@@ -52,8 +52,14 @@ async function saveTranscript(channel, closedBy, guild) {
             const usernameColor = group.authorBot ? '#5865f2' : getColorForUser(group.authorId);
 
             const msgsHTML = group.messages.map(m => {
-                const content = m.content ? `<div class="text">${escapeHTML(m.content)}</div>` : '';
+                // Fix mentions
+                const content = m.content ? `<div class="text">${escapeHTML(m.content)
+                    .replace(/&lt;@!?(\d+)&gt;/g, '<span class="mention">@user</span>')
+                    .replace(/&lt;@&amp;(\d+)&gt;/g, '<span class="mention">@role</span>')
+                    .replace(/&lt;#(\d+)&gt;/g, '<span class="mention">#channel</span>')
+                }</div>` : '';
 
+                // Handle embeds
                 const embedsHTML = m.embeds.map(embed => {
                     const color = embed.color ? `#${embed.color.toString(16).padStart(6, '0')}` : '#5865f2';
                     const fieldsHTML = embed.fields.map(f => `
@@ -73,13 +79,15 @@ async function saveTranscript(channel, closedBy, guild) {
                     `;
                 }).join('');
 
+                // Handle attachments using proxyURL
                 const attachmentsHTML = Array.from(m.attachments.values()).map(a => {
+                    const proxyUrl = a.proxyURL || a.url;
                     if (a.contentType && a.contentType.startsWith('image/')) {
-                        return `<div class="attachment"><img src="${a.url}" alt="${escapeHTML(a.name)}" /></div>`;
+                        return `<div class="attachment"><a href="${proxyUrl}" target="_blank"><img src="${proxyUrl}" alt="${escapeHTML(a.name)}" /></a></div>`;
                     } else if (a.contentType && a.contentType.startsWith('video/')) {
-                        return `<div class="attachment"><video controls><source src="${a.url}"></video></div>`;
+                        return `<div class="attachment"><video controls><source src="${proxyUrl}" type="${a.contentType}"></video></div>`;
                     }
-                    return `<div class="attachment file"><a href="${a.url}" target="_blank">📎 ${escapeHTML(a.name)}</a></div>`;
+                    return `<div class="attachment file"><a href="${proxyUrl}" target="_blank">📎 ${escapeHTML(a.name)}</a></div>`;
                 }).join('');
 
                 return `${content}${embedsHTML}${attachmentsHTML}`;
@@ -109,7 +117,6 @@ async function saveTranscript(channel, closedBy, guild) {
     <title>Transcript - #${channel.name}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-
         body {
             background-color: #313338;
             color: #dcddde;
@@ -117,8 +124,6 @@ async function saveTranscript(channel, closedBy, guild) {
             font-size: 16px;
             line-height: 1.375;
         }
-
-        /* HEADER */
         .header {
             background-color: #1e1f22;
             padding: 12px 20px;
@@ -130,26 +135,10 @@ async function saveTranscript(channel, closedBy, guild) {
             top: 0;
             z-index: 100;
         }
-        .header-hash {
-            color: #80848e;
-            font-size: 24px;
-            font-weight: 700;
-        }
-        .header-name {
-            font-size: 16px;
-            font-weight: 700;
-            color: #f2f3f5;
-        }
-        .header-divider {
-            color: #3f4147;
-            margin: 0 8px;
-        }
-        .header-desc {
-            font-size: 14px;
-            color: #80848e;
-        }
-
-        /* TICKET INFO BANNER */
+        .header-hash { color: #80848e; font-size: 24px; font-weight: 700; }
+        .header-name { font-size: 16px; font-weight: 700; color: #f2f3f5; }
+        .header-divider { color: #3f4147; margin: 0 8px; }
+        .header-desc { font-size: 14px; color: #80848e; }
         .ticket-banner {
             background: linear-gradient(135deg, #2b2d31, #1e1f22);
             border-bottom: 1px solid #1a1b1e;
@@ -164,16 +153,8 @@ async function saveTranscript(channel, closedBy, guild) {
             align-items: center;
             gap: 8px;
         }
-        .ticket-stats {
-            display: flex;
-            gap: 32px;
-            flex-wrap: wrap;
-        }
-        .ticket-stat {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
+        .ticket-stats { display: flex; gap: 32px; flex-wrap: wrap; }
+        .ticket-stat { display: flex; flex-direction: column; gap: 2px; }
         .ticket-stat-label {
             font-size: 11px;
             font-weight: 700;
@@ -181,35 +162,16 @@ async function saveTranscript(channel, closedBy, guild) {
             letter-spacing: 0.8px;
             color: #80848e;
         }
-        .ticket-stat-value {
-            font-size: 15px;
-            color: #f2f3f5;
-            font-weight: 500;
-        }
-
-        /* DATE SEPARATOR */
+        .ticket-stat-value { font-size: 15px; color: #f2f3f5; font-weight: 500; }
         .date-separator {
             display: flex;
             align-items: center;
             padding: 16px 24px;
             gap: 12px;
         }
-        .date-separator-line {
-            flex: 1;
-            height: 1px;
-            background-color: #3f4147;
-        }
-        .date-separator-text {
-            font-size: 12px;
-            font-weight: 600;
-            color: #80848e;
-            white-space: nowrap;
-        }
-
-        /* MESSAGES */
-        .messages-container {
-            padding: 8px 0;
-        }
+        .date-separator-line { flex: 1; height: 1px; background-color: #3f4147; }
+        .date-separator-text { font-size: 12px; font-weight: 600; color: #80848e; white-space: nowrap; }
+        .messages-container { padding: 8px 0; }
         .message-group {
             display: flex;
             padding: 4px 24px;
@@ -223,7 +185,6 @@ async function saveTranscript(channel, closedBy, guild) {
             border-radius: 50%;
             margin-top: 2px;
             flex-shrink: 0;
-            cursor: pointer;
         }
         .message-group-content { flex: 1; min-width: 0; }
         .message-header {
@@ -233,11 +194,7 @@ async function saveTranscript(channel, closedBy, guild) {
             margin-bottom: 4px;
             flex-wrap: wrap;
         }
-        .username {
-            font-weight: 600;
-            font-size: 15px;
-            cursor: pointer;
-        }
+        .username { font-weight: 600; font-size: 15px; cursor: pointer; }
         .username:hover { text-decoration: underline; }
         .bot-badge {
             background-color: #5865f2;
@@ -248,10 +205,7 @@ async function saveTranscript(channel, closedBy, guild) {
             border-radius: 3px;
             letter-spacing: 0.3px;
         }
-        .timestamp {
-            font-size: 11px;
-            color: #80848e;
-        }
+        .timestamp { font-size: 11px; color: #80848e; }
         .text {
             color: #dcddde;
             font-size: 15px;
@@ -259,8 +213,13 @@ async function saveTranscript(channel, closedBy, guild) {
             line-height: 1.4;
             margin-bottom: 2px;
         }
-
-        /* EMBEDS */
+        .mention {
+            background-color: rgba(88, 101, 242, 0.3);
+            color: #c9cdfb;
+            border-radius: 3px;
+            padding: 0 2px;
+            font-weight: 500;
+        }
         .embed {
             border-left: 4px solid #5865f2;
             background-color: #2b2d31;
@@ -269,51 +228,14 @@ async function saveTranscript(channel, closedBy, guild) {
             margin-top: 4px;
             max-width: 520px;
         }
-        .embed-title {
-            font-weight: 700;
-            color: #f2f3f5;
-            margin-bottom: 8px;
-            font-size: 15px;
-        }
-        .embed-desc {
-            color: #dcddde;
-            font-size: 14px;
-            line-height: 1.4;
-            margin-bottom: 8px;
-            white-space: pre-line;
-        }
-        .embed-fields {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 8px;
-        }
-        .embed-field {
-            flex: 0 0 100%;
-        }
-        .embed-field.inline {
-            flex: 0 0 calc(33% - 8px);
-            min-width: 100px;
-        }
-        .embed-field-name {
-            font-weight: 700;
-            font-size: 13px;
-            color: #f2f3f5;
-            margin-bottom: 2px;
-        }
-        .embed-field-value {
-            font-size: 14px;
-            color: #dcddde;
-        }
-        .embed-footer {
-            font-size: 12px;
-            color: #80848e;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid #3f4147;
-        }
-
-        /* ATTACHMENTS */
+        .embed-title { font-weight: 700; color: #f2f3f5; margin-bottom: 8px; font-size: 15px; }
+        .embed-desc { color: #dcddde; font-size: 14px; line-height: 1.4; margin-bottom: 8px; white-space: pre-line; }
+        .embed-fields { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .embed-field { flex: 0 0 100%; }
+        .embed-field.inline { flex: 0 0 calc(33% - 8px); min-width: 100px; }
+        .embed-field-name { font-weight: 700; font-size: 13px; color: #f2f3f5; margin-bottom: 2px; }
+        .embed-field-value { font-size: 14px; color: #dcddde; }
+        .embed-footer { font-size: 12px; color: #80848e; margin-top: 8px; padding-top: 8px; border-top: 1px solid #3f4147; }
         .attachment { margin-top: 8px; }
         .attachment img {
             max-width: min(400px, 100%);
@@ -321,18 +243,9 @@ async function saveTranscript(channel, closedBy, guild) {
             border-radius: 4px;
             cursor: pointer;
         }
-        .attachment video {
-            max-width: min(400px, 100%);
-            border-radius: 4px;
-        }
-        .attachment.file a {
-            color: #00aff4;
-            text-decoration: none;
-            font-size: 14px;
-        }
+        .attachment video { max-width: min(400px, 100%); border-radius: 4px; }
+        .attachment.file a { color: #00aff4; text-decoration: none; font-size: 14px; }
         .attachment.file a:hover { text-decoration: underline; }
-
-        /* FOOTER */
         .footer {
             text-align: center;
             padding: 24px;
@@ -343,8 +256,6 @@ async function saveTranscript(channel, closedBy, guild) {
             background-color: #2b2d31;
         }
         .footer strong { color: #f2f3f5; }
-
-        /* SCROLLBAR */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #2b2d31; }
         ::-webkit-scrollbar-thumb { background: #1a1b1e; border-radius: 4px; }
@@ -356,9 +267,8 @@ async function saveTranscript(channel, closedBy, guild) {
         <span class="header-hash">#</span>
         <span class="header-name">${channel.name}</span>
         <span class="header-divider">|</span>
-        <span class="header-desc">Ticket Transcript</span>
+        <span class="header-desc">Ticket Transcript • Harlesh CODM Marketplace</span>
     </div>
-
     <div class="ticket-banner">
         <h2>🎫 Ticket Information</h2>
         <div class="ticket-stats">
@@ -384,17 +294,14 @@ async function saveTranscript(channel, closedBy, guild) {
             </div>
         </div>
     </div>
-
     <div class="date-separator">
         <div class="date-separator-line"></div>
         <div class="date-separator-text">${new Date(allMessages[0]?.createdTimestamp || Date.now()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
         <div class="date-separator-line"></div>
     </div>
-
     <div class="messages-container">
         ${messagesHTML}
     </div>
-
     <div class="footer">
         <strong>Harlesh CODM Marketplace</strong> • Ticket System • Generated ${new Date().toLocaleString()}
     </div>
@@ -409,7 +316,7 @@ async function saveTranscript(channel, closedBy, guild) {
             const { EmbedBuilder } = require('discord.js');
             const embed = new EmbedBuilder()
                 .setTitle('📄 Ticket Transcript')
-                .setDescription(`Transcript for **#${channel.name}** is attached below.\nOpen the HTML file in your browser for the full Discord-like view!`)
+                .setDescription(`Transcript for **#${channel.name}** is attached below.\nDownload and open in your browser for full Discord-like view!`)
                 .addFields(
                     { name: '🎫 Ticket', value: channel.name, inline: true },
                     { name: '🔒 Closed By', value: closedBy.tag, inline: true },
