@@ -289,6 +289,19 @@ async function createTicketChannel(interaction, category, fields) {
         .setFooter({ text: `Ticket ID: ${ticketChannel.id}` })
         .setTimestamp();
 
+    // Safety warning embed for sales tickets
+    const salesCategories = ['buy_codm', 'sell_codm', 'buy_device', 'sell_device'];
+    const safetyEmbed = salesCategories.includes(category) ? new EmbedBuilder()
+        .setTitle('🔒 Safety & Transaction Policy')
+        .setDescription(
+            'All transactions, payments and deals must be conducted **within this ticket only.**\n\n' +
+            '⚠️ Do not share payment details, send money or finalize any deal outside of this ticket channel.\n\n' +
+            '📌 Harlesh Marketplace staff will **never** ask you to pay outside of a ticket.\n\n' +
+            '❌ Any losses from deals conducted outside of tickets are **not covered** by our protection policy.'
+        )
+        .setColor(0xED4245)
+        : null;
+
     // Buttons
     const claimButton = new ButtonBuilder()
         .setCustomId('claim_ticket')
@@ -308,7 +321,7 @@ async function createTicketChannel(interaction, category, fields) {
 
     await ticketChannel.send({
         content: pingMessage,
-        embeds: [ticketEmbed],
+        embeds: safetyEmbed ? [ticketEmbed, safetyEmbed] : [ticketEmbed],
         components: [row],
     });
 
