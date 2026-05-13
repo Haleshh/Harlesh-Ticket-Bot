@@ -8,6 +8,7 @@ const {
 } = require('discord.js');
 const { token } = require('./configs');
 const { handleSetup, handleAddVendor, handleRemoveVendor } = require('./commands/setup');
+const { handleStats } = require('./commands/stats');
 const {
     showBuySelector,
     showSellSelector,
@@ -22,6 +23,7 @@ const {
     handleCommissionOutcome,
     handleConfirmClose,
     handleCancelClose,
+    incrementTotalTickets,
 } = require('./handlers/ticketClose');
 const fs = require('fs');
 
@@ -56,6 +58,11 @@ client.on('interactionCreate', async (interaction) => {
             // SETUP
             if (interaction.commandName === 'setup') {
                 return handleSetup(interaction);
+            }
+
+            // STATS
+            if (interaction.commandName === 'stats') {
+                return handleStats(interaction);
             }
 
             // PANEL
@@ -185,16 +192,19 @@ client.on('interactionCreate', async (interaction) => {
 
             // OPEN BUY TICKET
             if (interaction.customId === 'open_buy') {
+                incrementTotalTickets();
                 return showBuySelector(interaction);
             }
 
             // OPEN SELL TICKET
             if (interaction.customId === 'open_sell') {
+                incrementTotalTickets();
                 return showSellSelector(interaction);
             }
 
             // OPEN SUPPORT TICKET
             if (interaction.customId === 'open_support') {
+                incrementTotalTickets();
                 return showSupportSelector(interaction);
             }
 

@@ -109,6 +109,10 @@ const commands = [
             },
         ],
     },
+    {
+        name: 'stats',
+        description: 'View the Harlesh Marketplace dashboard and statistics',
+    },
 ];
 
 const rest = new REST({ version: '10' }).setToken(token);

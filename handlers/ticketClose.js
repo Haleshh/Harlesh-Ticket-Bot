@@ -8,6 +8,71 @@ function isSalesTicket(channelName) {
     return salesCategories.some(prefix => channelName.startsWith(prefix));
 }
 
+function getTicketType(channelName) {
+    if (channelName.startsWith('buy-codm')) return 'buy_codm';
+    if (channelName.startsWith('sell-codm')) return 'sell_codm';
+    if (channelName.startsWith('buy-device')) return 'buy_device';
+    if (channelName.startsWith('sell-device')) return 'sell_device';
+    if (channelName.startsWith('support')) return 'general_support';
+    if (channelName.startsWith('report')) return 'report_vendor';
+    return 'general_support';
+}
+
+function updateStats(ticketType, tradeData, claimedBy) {
+    const stats = JSON.parse(fs.readFileSync('./stats.json', 'utf8'));
+
+    // Update closed tickets
+    stats.closedTickets = (stats.closedTickets || 0) + 1;
+
+    // Update ticket type count
+    if (stats.ticketTypes[ticketType] !== undefined) {
+        stats.ticketTypes[ticketType] = (stats.ticketTypes[ticketType] || 0) + 1;
+    }
+
+    // Update trade data for sales tickets
+    if (tradeData) {
+        if (tradeData.tradeSuccess) {
+            stats.successfulTrades = (stats.successfulTrades || 0) + 1;
+        } else {
+            stats.unsuccessfulTrades = (stats.unsuccessfulTrades || 0) + 1;
+        }
+
+        if (tradeData.commissionPaid) {
+            stats.commissionPaid = (stats.commissionPaid || 0) + 1;
+        } else {
+            stats.commissionUnpaid = (stats.commissionUnpaid || 0) + 1;
+        }
+    }
+
+    // Update vendor stats
+    if (claimedBy) {
+        if (!stats.vendorStats) stats.vendorStats = {};
+        if (!stats.vendorStats[claimedBy]) {
+            stats.vendorStats[claimedBy] = {
+                closed: 0,
+                successful: 0,
+                unsuccessful: 0,
+            };
+        }
+        stats.vendorStats[claimedBy].closed = (stats.vendorStats[claimedBy].closed || 0) + 1;
+        if (tradeData) {
+            if (tradeData.tradeSuccess) {
+                stats.vendorStats[claimedBy].successful = (stats.vendorStats[claimedBy].successful || 0) + 1;
+            } else {
+                stats.vendorStats[claimedBy].unsuccessful = (stats.vendorStats[claimedBy].unsuccessful || 0) + 1;
+            }
+        }
+    }
+
+    fs.writeFileSync('./stats.json', JSON.stringify(stats, null, 4));
+}
+
+function incrementTotalTickets() {
+    const stats = JSON.parse(fs.readFileSync('./stats.json', 'utf8'));
+    stats.totalTickets = (stats.totalTickets || 0) + 1;
+    fs.writeFileSync('./stats.json', JSON.stringify(stats, null, 4));
+}
+
 async function handleTicketClose(interaction) {
     await interaction.deferReply({ flags: 64 });
     const settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
@@ -117,6 +182,17 @@ async function handleCommissionOutcome(interaction, tradeSuccess, commissionPaid
         commissionText = commissionPaid ? '✅ Paid' : '❌ Not Paid';
     }
 
+    // Get claimed by from channel topic
+    const topic = interaction.channel.topic || '';
+    const claimedMatch = topic.match(/Claimed by: (.+?) \(/);
+    const claimedBy = claimedMatch ? claimedMatch[1] : null;
+
+    // Get ticket type
+    const ticketType = getTicketType(interaction.channel.name);
+
+    // Update stats
+    updateStats(ticketType, { tradeSuccess, commissionPaid }, claimedBy);
+
     // Show summary before closing
     const summaryEmbed = new EmbedBuilder()
         .setTitle('📊 Trade Summary')
@@ -176,6 +252,14 @@ async function handleConfirmClose(interaction) {
         });
     }
 
+    // Get ticket type and update stats
+    const ticketType = getTicketType(interaction.channel.name);
+    const topic = interaction.channel.topic || '';
+    const claimedMatch = topic.match(/Claimed by: (.+?) \(/);
+    const claimedBy = claimedMatch ? claimedMatch[1] : null;
+
+    updateStats(ticketType, null, claimedBy);
+
     await interaction.editReply({
         content: '📄 Saving transcript and closing ticket...',
         embeds: [],
@@ -217,4 +301,5 @@ module.exports = {
     handleCommissionOutcome,
     handleConfirmClose,
     handleCancelClose,
+    incrementTotalTickets,
 };

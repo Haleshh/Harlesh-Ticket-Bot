@@ -1,0 +1,17 @@
+{
+    "totalTickets": 0,
+    "closedTickets": 0,
+    "successfulTrades": 0,
+    "unsuccessfulTrades": 0,
+    "commissionPaid": 0,
+    "commissionUnpaid": 0,
+    "ticketTypes": {
+        "buy_codm": 0,
+        "sell_codm": 0,
+        "buy_device": 0,
+        "sell_device": 0,
+        "general_support": 0,
+        "report_vendor": 0
+    },
+    "vendorStats": {}
+}
