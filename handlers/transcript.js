@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-async function saveTranscript(channel, closedBy, guild) {
+async function saveTranscript(channel, closedBy, guild, tradeData) {
     const settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
 
     try {
@@ -111,6 +111,28 @@ async function saveTranscript(channel, closedBy, guild) {
             `;
         }))).join('');
 
+        // Trade summary banner for sales tickets
+        const tradeBannerHTML = tradeData ? `
+            <div class="trade-banner" style="border-color: ${tradeData.color === 0x57F287 ? '#57f287' : tradeData.color === 0xFEE75C ? '#fee75c' : '#ed4245'}">
+                <h2>📊 Trade Summary</h2>
+                <div class="trade-stats">
+                    <div class="trade-stat">
+                        <span class="trade-stat-label">Trade Status</span>
+                        <span class="trade-stat-value">${tradeData.statusText}</span>
+                    </div>
+                    <div class="trade-stat">
+                        <span class="trade-stat-label">Commission</span>
+                        <span class="trade-stat-value">${tradeData.commissionText}</span>
+                    </div>
+                </div>
+            </div>
+        ` : '';
+
+        const embedColor = tradeData ? (
+            tradeData.color === 0x57F287 ? '#57f287' :
+            tradeData.color === 0xFEE75C ? '#fee75c' : '#ed4245'
+        ) : '#5865f2';
+
         const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -133,7 +155,7 @@ async function saveTranscript(channel, closedBy, guild) {
             display: flex;
             align-items: center;
             gap: 10px;
-            border-bottom: 2px solid #5865f2;
+            border-bottom: 2px solid ${embedColor};
             position: sticky;
             top: 0;
             z-index: 100;
@@ -166,6 +188,28 @@ async function saveTranscript(channel, closedBy, guild) {
             color: #80848e;
         }
         .ticket-stat-value { font-size: 15px; color: #f2f3f5; font-weight: 500; }
+        .trade-banner {
+            background: linear-gradient(135deg, #1e1f22, #2b2d31);
+            border-left: 4px solid #57f287;
+            border-bottom: 1px solid #1a1b1e;
+            padding: 20px 24px;
+        }
+        .trade-banner h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #f2f3f5;
+            margin-bottom: 16px;
+        }
+        .trade-stats { display: flex; gap: 32px; flex-wrap: wrap; }
+        .trade-stat { display: flex; flex-direction: column; gap: 2px; }
+        .trade-stat-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #80848e;
+        }
+        .trade-stat-value { font-size: 15px; color: #f2f3f5; font-weight: 500; }
         .date-separator {
             display: flex;
             align-items: center;
@@ -296,6 +340,7 @@ async function saveTranscript(channel, closedBy, guild) {
             </div>
         </div>
     </div>
+    ${tradeBannerHTML}
     <div class="date-separator">
         <div class="date-separator-line"></div>
         <div class="date-separator-text">${new Date(allMessages[0]?.createdTimestamp || Date.now()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
@@ -316,6 +361,9 @@ async function saveTranscript(channel, closedBy, guild) {
         const transcriptChannel = guild.channels.cache.get(settings.transcriptChannelId);
         if (transcriptChannel) {
             const { EmbedBuilder } = require('discord.js');
+
+            const embedColor = tradeData ? tradeData.color : 0x5865F2;
+
             const embed = new EmbedBuilder()
                 .setTitle('📄 Ticket Transcript')
                 .setDescription(`Transcript for **#${channel.name}** is attached below.\nDownload and open in your browser for full Discord-like view!`)
@@ -324,8 +372,12 @@ async function saveTranscript(channel, closedBy, guild) {
                     { name: '🔒 Closed By', value: closedBy.tag, inline: true },
                     { name: '💬 Messages', value: `${allMessages.length}`, inline: true },
                     { name: '📅 Date', value: new Date().toLocaleString(), inline: true },
+                    ...(tradeData ? [
+                        { name: '📈 Trade Status', value: tradeData.statusText, inline: true },
+                        { name: '💰 Commission', value: tradeData.commissionText, inline: true },
+                    ] : []),
                 )
-                .setColor(0x5865F2)
+                .setColor(embedColor)
                 .setTimestamp();
 
             await transcriptChannel.send({

@@ -16,8 +16,20 @@ const {
     createTicketChannel,
 } = require('./handlers/ticketCreate');
 const { handleTicketClaim } = require('./handlers/ticketClaim');
-const { handleTicketClose, handleConfirmClose, handleCancelClose } = require('./handlers/ticketClose');
+const {
+    handleTicketClose,
+    handleTradeOutcome,
+    handleCommissionOutcome,
+    handleConfirmClose,
+    handleCancelClose,
+} = require('./handlers/ticketClose');
 const fs = require('fs');
+
+const http = require('http');
+http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end('Bot is running!');
+}).listen(process.env.PORT || 3000);
 
 const client = new Client({
     intents: [
@@ -196,8 +208,28 @@ client.on('interactionCreate', async (interaction) => {
                 return handleTicketClose(interaction);
             }
 
-            // CONFIRM CLOSE
-            if (interaction.customId === 'confirm_close') {
+            // TRADE OUTCOME BUTTONS
+            if (interaction.customId === 'trade_successful') {
+                return handleTradeOutcome(interaction, true);
+            }
+
+            if (interaction.customId === 'trade_unsuccessful') {
+                return handleTradeOutcome(interaction, false);
+            }
+
+            // COMMISSION OUTCOME BUTTONS
+            if (interaction.customId.startsWith('commission_paid_')) {
+                const tradeSuccess = interaction.customId === 'commission_paid_true';
+                return handleCommissionOutcome(interaction, tradeSuccess, true);
+            }
+
+            if (interaction.customId.startsWith('commission_unpaid_')) {
+                const tradeSuccess = interaction.customId === 'commission_unpaid_true';
+                return handleCommissionOutcome(interaction, tradeSuccess, false);
+            }
+
+            // CONFIRM CLOSE (non-sales tickets)
+            if (interaction.customId === 'confirm_close_no_trade') {
                 return handleConfirmClose(interaction);
             }
 
@@ -257,11 +289,5 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 });
-
-const http = require('http');
-http.createServer((req, res) => {
-    res.writeHead(200);
-    res.end('Bot is running!');
-}).listen(process.env.PORT || 3000);
 
 client.login(token);
