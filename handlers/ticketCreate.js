@@ -13,7 +13,7 @@ const {
 const fs = require('fs');
 
 // ---- SHOW BUY PANEL SELECTOR ----
-async function showBuySelector(interaction) {
+async function showBuySelector(interaction, listingData = null) {
     await interaction.deferReply({ flags: 64 });
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId('buy_category')
@@ -96,17 +96,50 @@ async function showSupportSelector(interaction) {
     });
 }
 
+// ---- SHOW BUY SELECTOR FROM LISTING ----
+async function showBuySelectorFromListing(interaction, listingType, vendorId) {
+    await interaction.deferReply({ flags: 64 });
+
+    // Store listing info in a temp way using customId
+    const category = listingType === 'account' ? 'buy_codm' : 'buy_device';
+
+    // Get listing embed details
+    const listingEmbed = interaction.message.embeds[0];
+    const description = listingEmbed?.description || '';
+    const vendorName = listingEmbed?.footer?.text?.split('Posted by ')[1]?.split(' •')[0] || 'Unknown Vendor';
+    const listingTitle = listingEmbed?.title || 'Listing';
+    const messageId = interaction.message.id;
+    const channelId = interaction.channelId;
+
+    // Store in a select menu with listing reference
+    const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId(`buy_from_listing_${listingType}_${vendorId}_${messageId}_${channelId}`)
+        .setPlaceholder('Confirm your ticket type...')
+        .addOptions([
+            {
+                label: listingType === 'account' ? 'Buy this CODM Account' : 'Buy this Device',
+                description: `Open a ticket for this listing by ${vendorName}`,
+                value: category,
+                emoji: listingType === 'account' ? '🛒' : '📱',
+            },
+        ]);
+
+    const row = new ActionRowBuilder().addComponents(selectMenu);
+    await interaction.editReply({
+        content: `📋 Opening a ticket for **${listingTitle}** by **${vendorName}**`,
+        components: [row],
+    });
+}
+
 // ---- SHOW MODAL BASED ON CATEGORY ----
 async function showTicketModal(interaction, category) {
     const modals = {
         buy_codm: {
             title: '🛒 Buy a CODM Account',
             fields: [
-                { id: 'uid', label: 'What is your UID?', placeholder: 'Enter your CODM UID' },
                 { id: 'account_type', label: 'Stacked account or Mid account?', placeholder: 'Stacked / Mid' },
-                { id: 'budget', label: 'Budget/Selling Price?', placeholder: 'e.g. N50,000' },
-                { id: 'linked', label: 'What is linked to the account?', placeholder: 'e.g. Google, Facebook, Activision' },
-                { id: 'logs', label: 'Do you have all logs access?', placeholder: 'Yes / No' },
+                { id: 'budget', label: 'Budget?', placeholder: 'e.g. N50,000' },
+                { id: 'details', label: 'Any additional details?', placeholder: 'Optional extra info' },
             ],
         },
         sell_codm: {
@@ -114,7 +147,7 @@ async function showTicketModal(interaction, category) {
             fields: [
                 { id: 'uid', label: 'What is your UID?', placeholder: 'Enter your CODM UID' },
                 { id: 'account_type', label: 'Stacked account or Mid account?', placeholder: 'Stacked / Mid' },
-                { id: 'price', label: 'Budget/Selling Price?', placeholder: 'e.g. N50,000' },
+                { id: 'price', label: 'Selling Price?', placeholder: 'e.g. N50,000' },
                 { id: 'linked', label: 'What is linked to the account?', placeholder: 'e.g. Google, Facebook, Activision' },
                 { id: 'logs', label: 'Do you have all logs access?', placeholder: 'Yes / No' },
             ],
@@ -179,8 +212,49 @@ async function showTicketModal(interaction, category) {
     await interaction.showModal(modal);
 }
 
+// ---- SHOW MODAL FROM LISTING ----
+async function showTicketModalFromListing(interaction, category, listingType, vendorId, messageId, channelId) {
+    const modals = {
+        buy_codm: {
+            title: '🛒 Buy a CODM Account',
+            fields: [
+                { id: 'account_type', label: 'Stacked account or Mid account?', placeholder: 'Stacked / Mid' },
+                { id: 'budget', label: 'Budget?', placeholder: 'e.g. N50,000' },
+                { id: 'details', label: 'Any additional details?', placeholder: 'Optional extra info' },
+            ],
+        },
+        buy_device: {
+            title: '📱 Buy a Device',
+            fields: [
+                { id: 'device', label: 'What device are you looking for?', placeholder: 'e.g. iPhone 13, Samsung S22' },
+                { id: 'budget', label: 'What is your budget?', placeholder: 'e.g. N200,000' },
+                { id: 'condition', label: 'Preferred condition?', placeholder: 'New / Used / Any' },
+                { id: 'location', label: 'What is your location?', placeholder: 'e.g. Lagos, Nigeria' },
+                { id: 'details', label: 'Any additional details?', placeholder: 'Optional extra info' },
+            ],
+        },
+    };
+
+    const modalData = modals[category];
+    const modal = new ModalBuilder()
+        .setCustomId(`ticket_modal_listing_${category}_${listingType}_${vendorId}_${messageId}_${channelId}`)
+        .setTitle(modalData.title);
+
+    modalData.fields.forEach(field => {
+        const input = new TextInputBuilder()
+            .setCustomId(field.id)
+            .setLabel(field.label)
+            .setPlaceholder(field.placeholder)
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
+    });
+
+    await interaction.showModal(modal);
+}
+
 // ---- CREATE TICKET CHANNEL ----
-async function createTicketChannel(interaction, category, fields) {
+async function createTicketChannel(interaction, category, fields, listingReference = null) {
     const settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
 
     const categoryConfig = {
@@ -266,6 +340,18 @@ async function createTicketChannel(interaction, category, fields) {
         },
     ];
 
+    // Add vendor to ticket permissions if from listing
+    if (listingReference?.vendorId) {
+        permissionOverwrites.push({
+            id: listingReference.vendorId,
+            allow: [
+                PermissionFlagsBits.ViewChannel,
+                PermissionFlagsBits.SendMessages,
+                PermissionFlagsBits.AttachFiles,
+            ],
+        });
+    }
+
     // Create channel
     const ticketChannel = await interaction.guild.channels.create({
         name: channelName,
@@ -302,6 +388,20 @@ async function createTicketChannel(interaction, category, fields) {
         .setColor(0xED4245)
         : null;
 
+    // Referenced listing embed
+    let referencedEmbed = null;
+    if (listingReference) {
+        const jumpUrl = `https://discord.com/channels/${interaction.guild.id}/${listingReference.channelId}/${listingReference.messageId}`;
+        referencedEmbed = new EmbedBuilder()
+            .setTitle('📋 Referenced Listing')
+            .setDescription(listingReference.description)
+            .addFields(
+                { name: '🏪 Posted By', value: listingReference.vendorName, inline: true },
+                { name: '🔗 Original Post', value: `[Click to view](${jumpUrl})`, inline: true },
+            )
+            .setColor(0x2B2D31);
+    }
+
     // Buttons
     const claimButton = new ButtonBuilder()
         .setCustomId('claim_ticket')
@@ -317,11 +417,19 @@ async function createTicketChannel(interaction, category, fields) {
 
     const row = new ActionRowBuilder().addComponents(claimButton, closeButton);
 
-    const pingMessage = `${interaction.user} <@&${config.pingRole}>`;
+    const pingMessage = listingReference?.vendorId
+        ? `${interaction.user} <@&${config.pingRole}> <@${listingReference.vendorId}>`
+        : `${interaction.user} <@&${config.pingRole}>`;
+
+    // Build embeds array in order
+    const embeds = [];
+    if (referencedEmbed) embeds.push(referencedEmbed);
+    embeds.push(ticketEmbed);
+    if (safetyEmbed) embeds.push(safetyEmbed);
 
     await ticketChannel.send({
         content: pingMessage,
-        embeds: safetyEmbed ? [ticketEmbed, safetyEmbed] : [ticketEmbed],
+        embeds,
         components: [row],
     });
 
@@ -335,6 +443,8 @@ module.exports = {
     showBuySelector,
     showSellSelector,
     showSupportSelector,
+    showBuySelectorFromListing,
     showTicketModal,
+    showTicketModalFromListing,
     createTicketChannel,
 };

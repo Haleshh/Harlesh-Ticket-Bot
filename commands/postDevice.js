@@ -12,7 +12,6 @@ const fs = require('fs');
 async function handlePostDevice(interaction) {
     const settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
 
-    // Check if user is a device vendor
     const isDeviceVendor = interaction.member.roles.cache.has(settings.deviceVendorRoleId);
     const isStaff = interaction.member.roles.cache.has(settings.staffRoleId);
 
@@ -23,7 +22,6 @@ async function handlePostDevice(interaction) {
         });
     }
 
-    // Show modal
     const modal = new ModalBuilder()
         .setCustomId('post_device_modal')
         .setTitle('📋 Post a Device');
@@ -87,19 +85,18 @@ async function handlePostDeviceModal(interaction) {
 
     const listingEmbed = new EmbedBuilder()
         .setTitle('📱 Device For Sale')
-        .addFields(
-            { name: '📱 Device', value: deviceName, inline: true },
-            { name: '✨ Condition', value: condition, inline: true },
-            { name: '💰 Price', value: price, inline: true },
-            { name: '⚙️ Storage/Specs', value: specs, inline: true },
+        .setDescription(
+            `📱 **Device**\n**${deviceName}**\n\n` +
+            `✨ **Condition**\n**${condition}**\n\n` +
+            `💰 **Price**\n**${price}**\n\n` +
+            `⚙️ **Storage/Specs**\n**${specs}**`
         )
         .setColor(0xFEE75C)
         .setFooter({ text: `Posted by ${vendorName} • Harlesh Marketplace Solutions` })
         .setTimestamp();
 
-    // Buttons
     const ticketButton = new ButtonBuilder()
-        .setCustomId('open_buy')
+        .setCustomId(`open_buy_listing_device_${interaction.user.id}`)
         .setLabel('Open a Ticket')
         .setEmoji('🎫')
         .setStyle(ButtonStyle.Primary);
@@ -112,18 +109,15 @@ async function handlePostDeviceModal(interaction) {
 
     const row = new ActionRowBuilder().addComponents(ticketButton, editButton);
 
-    // Add video button if URL provided
     if (videoUrl) {
         const videoButton = new ButtonBuilder()
             .setLabel('View Video')
             .setEmoji('🎥')
             .setStyle(ButtonStyle.Link)
             .setURL(videoUrl);
-
         row.addComponents(videoButton);
     }
 
-    // Send to device display channel
     const displayChannel = interaction.guild.channels.cache.get(settings.deviceDisplayChannelId);
     if (!displayChannel) {
         return interaction.reply({
@@ -144,9 +138,6 @@ async function handlePostDeviceModal(interaction) {
 }
 
 async function handleEditDeviceListing(interaction) {
-    const settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
-
-    // Check if the user is the one who posted
     const posterId = interaction.customId.replace('edit_device_', '');
     if (interaction.user.id !== posterId) {
         return interaction.reply({
@@ -155,13 +146,15 @@ async function handleEditDeviceListing(interaction) {
         });
     }
 
-    // Get current embed values
     const currentEmbed = interaction.message.embeds[0];
-    const currentFields = currentEmbed?.fields || [];
+    const description = currentEmbed?.description || '';
 
-    const getField = (name) => currentFields.find(f => f.name === name)?.value || '';
+    function extractField(label, text) {
+        const regex = new RegExp(`\\*\\*${label}\\*\\*\\n\\*\\*(.+?)\\*\\*`, 's');
+        const match = text.match(regex);
+        return match ? match[1] : '';
+    }
 
-    // Show edit modal with current values
     const modal = new ModalBuilder()
         .setCustomId(`edit_device_modal_${interaction.message.id}`)
         .setTitle('✏️ Edit Device Listing');
@@ -169,28 +162,28 @@ async function handleEditDeviceListing(interaction) {
     const deviceNameInput = new TextInputBuilder()
         .setCustomId('device_name')
         .setLabel('Device Name')
-        .setValue(getField('📱 Device'))
+        .setValue(extractField('Device', description))
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
     const conditionInput = new TextInputBuilder()
         .setCustomId('condition')
         .setLabel('Condition')
-        .setValue(getField('✨ Condition'))
+        .setValue(extractField('Condition', description))
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
     const priceInput = new TextInputBuilder()
         .setCustomId('price')
         .setLabel('Price')
-        .setValue(getField('💰 Price'))
+        .setValue(extractField('Price', description))
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
     const specsInput = new TextInputBuilder()
         .setCustomId('specs')
         .setLabel('Storage/Specs')
-        .setValue(getField('⚙️ Storage/Specs'))
+        .setValue(extractField('Storage/Specs', description))
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
@@ -236,18 +229,18 @@ async function handleEditDeviceModal(interaction, messageId) {
 
         const updatedEmbed = new EmbedBuilder()
             .setTitle('📱 Device For Sale')
-            .addFields(
-                { name: '📱 Device', value: deviceName, inline: true },
-                { name: '✨ Condition', value: condition, inline: true },
-                { name: '💰 Price', value: price, inline: true },
-                { name: '⚙️ Storage/Specs', value: specs, inline: true },
+            .setDescription(
+                `📱 **Device**\n**${deviceName}**\n\n` +
+                `✨ **Condition**\n**${condition}**\n\n` +
+                `💰 **Price**\n**${price}**\n\n` +
+                `⚙️ **Storage/Specs**\n**${specs}**`
             )
             .setColor(0xFEE75C)
             .setFooter({ text: `Posted by ${vendorName} • Harlesh Marketplace Solutions • Edited` })
             .setTimestamp();
 
         const ticketButton = new ButtonBuilder()
-            .setCustomId('open_buy')
+            .setCustomId(`open_buy_listing_device_${interaction.user.id}`)
             .setLabel('Open a Ticket')
             .setEmoji('🎫')
             .setStyle(ButtonStyle.Primary);
@@ -266,7 +259,6 @@ async function handleEditDeviceModal(interaction, messageId) {
                 .setEmoji('🎥')
                 .setStyle(ButtonStyle.Link)
                 .setURL(videoUrl);
-
             row.addComponents(videoButton);
         }
 

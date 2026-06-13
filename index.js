@@ -25,7 +25,9 @@ const {
     showBuySelector,
     showSellSelector,
     showSupportSelector,
+    showBuySelectorFromListing,
     showTicketModal,
+    showTicketModalFromListing,
     createTicketChannel,
 } = require('./handlers/ticketCreate');
 const { handleTicketClaim } = require('./handlers/ticketClaim');
@@ -67,27 +69,22 @@ client.on('interactionCreate', async (interaction) => {
         // ---- SLASH COMMANDS ----
         if (interaction.isChatInputCommand()) {
 
-            // SETUP
             if (interaction.commandName === 'setup') {
                 return handleSetup(interaction);
             }
 
-            // STATS
             if (interaction.commandName === 'stats') {
                 return handleStats(interaction);
             }
 
-            // POST ACCOUNT
             if (interaction.commandName === 'post-account') {
                 return handlePostAccount(interaction);
             }
 
-            // POST DEVICE
             if (interaction.commandName === 'post-device') {
                 return handlePostDevice(interaction);
             }
 
-            // PANEL
             if (interaction.commandName === 'panel') {
                 const settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
 
@@ -155,17 +152,14 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.channel.send({ embeds: [panelEmbed], components: [row] });
             }
 
-            // ADD VENDOR
             if (interaction.commandName === 'add-vendor') {
                 return handleAddVendor(interaction);
             }
 
-            // REMOVE VENDOR
             if (interaction.commandName === 'remove-vendor') {
                 return handleRemoveVendor(interaction);
             }
 
-            // ADD USER
             if (interaction.commandName === 'add-user') {
                 const settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
                 const isStaff = interaction.member.roles.cache.has(settings.staffRoleId);
@@ -187,7 +181,6 @@ client.on('interactionCreate', async (interaction) => {
                 return interaction.reply({ embeds: [embed] });
             }
 
-            // REMOVE USER
             if (interaction.commandName === 'remove-user') {
                 const settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
                 const isStaff = interaction.member.roles.cache.has(settings.staffRoleId);
@@ -212,35 +205,41 @@ client.on('interactionCreate', async (interaction) => {
         // ---- BUTTONS ----
         if (interaction.isButton()) {
 
-            // OPEN BUY TICKET
             if (interaction.customId === 'open_buy') {
                 incrementTotalTickets();
                 return showBuySelector(interaction);
             }
 
-            // OPEN SELL TICKET
             if (interaction.customId === 'open_sell') {
                 incrementTotalTickets();
                 return showSellSelector(interaction);
             }
 
-            // OPEN SUPPORT TICKET
             if (interaction.customId === 'open_support') {
                 incrementTotalTickets();
                 return showSupportSelector(interaction);
             }
 
-            // CLAIM TICKET
+            // OPEN TICKET FROM ACCOUNT LISTING
+            if (interaction.customId.startsWith('open_buy_listing_account_')) {
+                incrementTotalTickets();
+                return showBuySelectorFromListing(interaction, 'account', interaction.customId.replace('open_buy_listing_account_', ''));
+            }
+
+            // OPEN TICKET FROM DEVICE LISTING
+            if (interaction.customId.startsWith('open_buy_listing_device_')) {
+                incrementTotalTickets();
+                return showBuySelectorFromListing(interaction, 'device', interaction.customId.replace('open_buy_listing_device_', ''));
+            }
+
             if (interaction.customId === 'claim_ticket') {
                 return handleTicketClaim(interaction);
             }
 
-            // CLOSE TICKET
             if (interaction.customId === 'close_ticket') {
                 return handleTicketClose(interaction);
             }
 
-            // TRADE OUTCOME BUTTONS
             if (interaction.customId === 'trade_successful') {
                 return handleTradeOutcome(interaction, true);
             }
@@ -249,7 +248,6 @@ client.on('interactionCreate', async (interaction) => {
                 return handleTradeOutcome(interaction, false);
             }
 
-            // COMMISSION OUTCOME BUTTONS
             if (interaction.customId.startsWith('commission_paid_')) {
                 const tradeSuccess = interaction.customId === 'commission_paid_true';
                 return handleCommissionOutcome(interaction, tradeSuccess, true);
@@ -260,22 +258,18 @@ client.on('interactionCreate', async (interaction) => {
                 return handleCommissionOutcome(interaction, tradeSuccess, false);
             }
 
-            // CONFIRM CLOSE (non-sales tickets)
             if (interaction.customId === 'confirm_close_no_trade') {
                 return handleConfirmClose(interaction);
             }
 
-            // CANCEL CLOSE
             if (interaction.customId === 'cancel_close') {
                 return handleCancelClose(interaction);
             }
 
-            // EDIT ACCOUNT LISTING
             if (interaction.customId.startsWith('edit_account_')) {
                 return handleEditAccountListing(interaction);
             }
 
-            // EDIT DEVICE LISTING
             if (interaction.customId.startsWith('edit_device_')) {
                 return handleEditDeviceListing(interaction);
             }
@@ -284,22 +278,32 @@ client.on('interactionCreate', async (interaction) => {
         // ---- SELECT MENUS ----
         if (interaction.isStringSelectMenu()) {
 
-            // BUY CATEGORY
             if (interaction.customId === 'buy_category') {
                 const category = interaction.values[0];
                 return showTicketModal(interaction, category);
             }
 
-            // SELL CATEGORY
             if (interaction.customId === 'sell_category') {
                 const category = interaction.values[0];
                 return showTicketModal(interaction, category);
             }
 
-            // SUPPORT CATEGORY
             if (interaction.customId === 'support_category') {
                 const category = interaction.values[0];
                 return showTicketModal(interaction, category);
+            }
+
+            // BUY FROM LISTING SELECT MENU
+            if (interaction.customId.startsWith('buy_from_listing_')) {
+                const parts = interaction.customId.split('_');
+                // Format: buy_from_listing_{type}_{vendorId}_{messageId}_{channelId}
+                const listingType = parts[3];
+                const vendorId = parts[4];
+                const messageId = parts[5];
+                const channelId = parts[6];
+                const category = interaction.values[0];
+
+                return showTicketModalFromListing(interaction, category, listingType, vendorId, messageId, channelId);
             }
         }
 
@@ -307,29 +311,77 @@ client.on('interactionCreate', async (interaction) => {
         if (interaction.isModalSubmit()) {
             const customId = interaction.customId;
 
-            // POST ACCOUNT MODAL
             if (customId === 'post_account_modal') {
                 return handlePostAccountModal(interaction);
             }
 
-            // POST DEVICE MODAL
             if (customId === 'post_device_modal') {
                 return handlePostDeviceModal(interaction);
             }
 
-            // EDIT ACCOUNT MODAL
             if (customId.startsWith('edit_account_modal_')) {
                 const messageId = customId.replace('edit_account_modal_', '');
                 return handleEditAccountModal(interaction, messageId);
             }
 
-            // EDIT DEVICE MODAL
             if (customId.startsWith('edit_device_modal_')) {
                 const messageId = customId.replace('edit_device_modal_', '');
                 return handleEditDeviceModal(interaction, messageId);
             }
 
-            // TICKET MODALS
+            // TICKET FROM LISTING MODAL
+            if (customId.startsWith('ticket_modal_listing_')) {
+                const withoutPrefix = customId.replace('ticket_modal_listing_', '');
+                const parts = withoutPrefix.split('_');
+                // Format: {category}_{listingType}_{vendorId}_{messageId}_{channelId}
+                // category can be buy_codm or buy_device so we need to handle carefully
+                let category, listingType, vendorId, messageId, channelId;
+
+                if (withoutPrefix.startsWith('buy_codm')) {
+                    category = 'buy_codm';
+                    const rest = withoutPrefix.replace('buy_codm_', '').split('_');
+                    listingType = rest[0];
+                    vendorId = rest[1];
+                    messageId = rest[2];
+                    channelId = rest[3];
+                } else if (withoutPrefix.startsWith('buy_device')) {
+                    category = 'buy_device';
+                    const rest = withoutPrefix.replace('buy_device_', '').split('_');
+                    listingType = rest[0];
+                    vendorId = rest[1];
+                    messageId = rest[2];
+                    channelId = rest[3];
+                }
+
+                const fields = {};
+                interaction.fields.fields.forEach((field) => {
+                    fields[field.customId] = field.value;
+                });
+
+                // Fetch listing details for reference
+                let listingReference = null;
+                try {
+                    const listingChannel = interaction.guild.channels.cache.get(channelId);
+                    if (listingChannel) {
+                        const listingMessage = await listingChannel.messages.fetch(messageId);
+                        const listingEmbed = listingMessage.embeds[0];
+                        const vendorName = listingEmbed?.footer?.text?.split('Posted by ')[1]?.split(' •')[0] || 'Unknown Vendor';
+                        listingReference = {
+                            vendorId,
+                            vendorName,
+                            messageId,
+                            channelId,
+                            description: listingEmbed?.description || 'No details available',
+                        };
+                    }
+                } catch (err) {
+                    console.error('Error fetching listing:', err);
+                }
+
+                return createTicketChannel(interaction, category, fields, listingReference);
+            }
+
+            // REGULAR TICKET MODALS
             if (customId.startsWith('ticket_modal_')) {
                 const category = customId.replace('ticket_modal_', '');
                 const fields = {};

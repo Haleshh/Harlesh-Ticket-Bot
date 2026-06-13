@@ -12,7 +12,6 @@ const fs = require('fs');
 async function handlePostAccount(interaction) {
     const settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
 
-    // Check if user is a vendor
     const isVendor = interaction.member.roles.cache.has(settings.vendorRoleId);
     const isStaff = interaction.member.roles.cache.has(settings.staffRoleId);
 
@@ -23,7 +22,6 @@ async function handlePostAccount(interaction) {
         });
     }
 
-    // Show modal
     const modal = new ModalBuilder()
         .setCustomId('post_account_modal')
         .setTitle('📋 Post a CODM Account');
@@ -87,19 +85,18 @@ async function handlePostAccountModal(interaction) {
 
     const listingEmbed = new EmbedBuilder()
         .setTitle('🛒 CODM Account For Sale')
-        .addFields(
-            { name: '📊 Account Type', value: accountType, inline: true },
-            { name: '💰 Price', value: price, inline: true },
-            { name: '🔗 Linked To', value: linked, inline: true },
-            { name: '📝 Details', value: details, inline: false },
+        .setDescription(
+            `📊 **Account Type**\n**${accountType}**\n\n` +
+            `💰 **Price**\n**${price}**\n\n` +
+            `🔗 **Linked To**\n**${linked}**\n\n` +
+            `📝 **Details**\n**${details}**`
         )
         .setColor(0x5865F2)
         .setFooter({ text: `Posted by ${vendorName} • Harlesh Marketplace Solutions` })
         .setTimestamp();
 
-    // Buttons
     const ticketButton = new ButtonBuilder()
-        .setCustomId('open_buy')
+        .setCustomId(`open_buy_listing_account_${interaction.user.id}`)
         .setLabel('Open a Ticket')
         .setEmoji('🎫')
         .setStyle(ButtonStyle.Primary);
@@ -112,18 +109,15 @@ async function handlePostAccountModal(interaction) {
 
     const row = new ActionRowBuilder().addComponents(ticketButton, editButton);
 
-    // Add video button if URL provided
     if (videoUrl) {
         const videoButton = new ButtonBuilder()
             .setLabel('View Video')
             .setEmoji('🎥')
             .setStyle(ButtonStyle.Link)
             .setURL(videoUrl);
-
         row.addComponents(videoButton);
     }
 
-    // Send to account display channel
     const displayChannel = interaction.guild.channels.cache.get(settings.accountDisplayChannelId);
     if (!displayChannel) {
         return interaction.reply({
@@ -144,9 +138,6 @@ async function handlePostAccountModal(interaction) {
 }
 
 async function handleEditAccountListing(interaction) {
-    const settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
-
-    // Check if the user is the one who posted
     const posterId = interaction.customId.replace('edit_account_', '');
     if (interaction.user.id !== posterId) {
         return interaction.reply({
@@ -155,13 +146,15 @@ async function handleEditAccountListing(interaction) {
         });
     }
 
-    // Get current embed values
     const currentEmbed = interaction.message.embeds[0];
-    const currentFields = currentEmbed?.fields || [];
+    const description = currentEmbed?.description || '';
 
-    const getField = (name) => currentFields.find(f => f.name === name)?.value || '';
+    function extractField(label, text) {
+        const regex = new RegExp(`\\*\\*${label}\\*\\*\\n\\*\\*(.+?)\\*\\*`, 's');
+        const match = text.match(regex);
+        return match ? match[1] : '';
+    }
 
-    // Show edit modal with current values
     const modal = new ModalBuilder()
         .setCustomId(`edit_account_modal_${interaction.message.id}`)
         .setTitle('✏️ Edit Account Listing');
@@ -169,28 +162,28 @@ async function handleEditAccountListing(interaction) {
     const accountTypeInput = new TextInputBuilder()
         .setCustomId('account_type')
         .setLabel('Account Type')
-        .setValue(getField('📊 Account Type'))
+        .setValue(extractField('Account Type', description))
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
     const priceInput = new TextInputBuilder()
         .setCustomId('price')
         .setLabel('Price')
-        .setValue(getField('💰 Price'))
+        .setValue(extractField('Price', description))
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
     const linkedInput = new TextInputBuilder()
         .setCustomId('linked')
         .setLabel('What is linked to the account?')
-        .setValue(getField('🔗 Linked To'))
+        .setValue(extractField('Linked To', description))
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
     const detailsInput = new TextInputBuilder()
         .setCustomId('details')
         .setLabel('Additional Details')
-        .setValue(getField('📝 Details'))
+        .setValue(extractField('Details', description))
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(false);
 
@@ -223,7 +216,6 @@ async function handleEditAccountModal(interaction, messageId) {
 
     const vendorName = interaction.member.displayName || interaction.user.username;
 
-    // Find and edit the original message
     const displayChannel = interaction.guild.channels.cache.get(settings.accountDisplayChannelId);
     if (!displayChannel) {
         return interaction.reply({
@@ -237,18 +229,18 @@ async function handleEditAccountModal(interaction, messageId) {
 
         const updatedEmbed = new EmbedBuilder()
             .setTitle('🛒 CODM Account For Sale')
-            .addFields(
-                { name: '📊 Account Type', value: accountType, inline: true },
-                { name: '💰 Price', value: price, inline: true },
-                { name: '🔗 Linked To', value: linked, inline: true },
-                { name: '📝 Details', value: details, inline: false },
+            .setDescription(
+                `📊 **Account Type**\n**${accountType}**\n\n` +
+                `💰 **Price**\n**${price}**\n\n` +
+                `🔗 **Linked To**\n**${linked}**\n\n` +
+                `📝 **Details**\n**${details}**`
             )
             .setColor(0x5865F2)
             .setFooter({ text: `Posted by ${vendorName} • Harlesh Marketplace Solutions • Edited` })
             .setTimestamp();
 
         const ticketButton = new ButtonBuilder()
-            .setCustomId('open_buy')
+            .setCustomId(`open_buy_listing_account_${interaction.user.id}`)
             .setLabel('Open a Ticket')
             .setEmoji('🎫')
             .setStyle(ButtonStyle.Primary);
@@ -267,7 +259,6 @@ async function handleEditAccountModal(interaction, messageId) {
                 .setEmoji('🎥')
                 .setStyle(ButtonStyle.Link)
                 .setURL(videoUrl);
-
             row.addComponents(videoButton);
         }
 
