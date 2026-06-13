@@ -10,6 +10,18 @@ const { token } = require('./configs');
 const { handleSetup, handleAddVendor, handleRemoveVendor } = require('./commands/setup');
 const { handleStats } = require('./commands/stats');
 const {
+    handlePostAccount,
+    handlePostAccountModal,
+    handleEditAccountListing,
+    handleEditAccountModal,
+} = require('./commands/postAccount');
+const {
+    handlePostDevice,
+    handlePostDeviceModal,
+    handleEditDeviceListing,
+    handleEditDeviceModal,
+} = require('./commands/postDevice');
+const {
     showBuySelector,
     showSellSelector,
     showSupportSelector,
@@ -63,6 +75,16 @@ client.on('interactionCreate', async (interaction) => {
             // STATS
             if (interaction.commandName === 'stats') {
                 return handleStats(interaction);
+            }
+
+            // POST ACCOUNT
+            if (interaction.commandName === 'post-account') {
+                return handlePostAccount(interaction);
+            }
+
+            // POST DEVICE
+            if (interaction.commandName === 'post-device') {
+                return handlePostDevice(interaction);
             }
 
             // PANEL
@@ -247,6 +269,16 @@ client.on('interactionCreate', async (interaction) => {
             if (interaction.customId === 'cancel_close') {
                 return handleCancelClose(interaction);
             }
+
+            // EDIT ACCOUNT LISTING
+            if (interaction.customId.startsWith('edit_account_')) {
+                return handleEditAccountListing(interaction);
+            }
+
+            // EDIT DEVICE LISTING
+            if (interaction.customId.startsWith('edit_device_')) {
+                return handleEditDeviceListing(interaction);
+            }
         }
 
         // ---- SELECT MENUS ----
@@ -275,6 +307,29 @@ client.on('interactionCreate', async (interaction) => {
         if (interaction.isModalSubmit()) {
             const customId = interaction.customId;
 
+            // POST ACCOUNT MODAL
+            if (customId === 'post_account_modal') {
+                return handlePostAccountModal(interaction);
+            }
+
+            // POST DEVICE MODAL
+            if (customId === 'post_device_modal') {
+                return handlePostDeviceModal(interaction);
+            }
+
+            // EDIT ACCOUNT MODAL
+            if (customId.startsWith('edit_account_modal_')) {
+                const messageId = customId.replace('edit_account_modal_', '');
+                return handleEditAccountModal(interaction, messageId);
+            }
+
+            // EDIT DEVICE MODAL
+            if (customId.startsWith('edit_device_modal_')) {
+                const messageId = customId.replace('edit_device_modal_', '');
+                return handleEditDeviceModal(interaction, messageId);
+            }
+
+            // TICKET MODALS
             if (customId.startsWith('ticket_modal_')) {
                 const category = customId.replace('ticket_modal_', '');
                 const fields = {};

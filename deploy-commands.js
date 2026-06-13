@@ -113,6 +113,14 @@ const commands = [
         name: 'stats',
         description: 'View the Harlesh Marketplace dashboard and statistics',
     },
+    {
+        name: 'post-account',
+        description: 'Post a CODM account listing in the marketplace',
+    },
+    {
+        name: 'post-device',
+        description: 'Post a device listing in the marketplace',
+    },
 ];
 
 const rest = new REST({ version: '10' }).setToken(token);
