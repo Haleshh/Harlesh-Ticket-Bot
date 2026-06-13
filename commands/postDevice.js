@@ -9,6 +9,8 @@ const {
 } = require('discord.js');
 const fs = require('fs');
 
+const BANNER_URL = 'https://cdn.discordapp.com/attachments/1422924818554290327/1515239580528545883/2.jpg?ex=6a2e4853&is=6a2cf6d3&hm=fa97a0a6ef6d7aa47a0f19e694bdb498faf4c5fcebcd892a9ca4d87855db5d5b&';
+
 async function handlePostDevice(interaction) {
     const settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
 
@@ -54,10 +56,10 @@ async function handlePostDevice(interaction) {
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
-    const videoInput = new TextInputBuilder()
-        .setCustomId('video_url')
-        .setLabel('Video URL')
-        .setPlaceholder('Paste Discord CDN or video link here')
+    const mediaInput = new TextInputBuilder()
+        .setCustomId('media_link')
+        .setLabel('Media Link (Discord Message Link)')
+        .setPlaceholder('Right click message in video dump → Copy Message Link')
         .setStyle(TextInputStyle.Short)
         .setRequired(false);
 
@@ -66,7 +68,7 @@ async function handlePostDevice(interaction) {
         new ActionRowBuilder().addComponents(conditionInput),
         new ActionRowBuilder().addComponents(priceInput),
         new ActionRowBuilder().addComponents(specsInput),
-        new ActionRowBuilder().addComponents(videoInput),
+        new ActionRowBuilder().addComponents(mediaInput),
     );
 
     await interaction.showModal(modal);
@@ -79,12 +81,13 @@ async function handlePostDeviceModal(interaction) {
     const condition = interaction.fields.getTextInputValue('condition');
     const price = interaction.fields.getTextInputValue('price');
     const specs = interaction.fields.getTextInputValue('specs');
-    const videoUrl = interaction.fields.getTextInputValue('video_url') || null;
+    const mediaLink = interaction.fields.getTextInputValue('media_link') || null;
 
     const vendorName = interaction.member.displayName || interaction.user.username;
 
     const listingEmbed = new EmbedBuilder()
         .setTitle('📱 Device For Sale')
+        .setImage(BANNER_URL)
         .setDescription(
             `📱 **Device**\n**${deviceName}**\n\n` +
             `✨ **Condition**\n**${condition}**\n\n` +
@@ -109,13 +112,13 @@ async function handlePostDeviceModal(interaction) {
 
     const row = new ActionRowBuilder().addComponents(ticketButton, editButton);
 
-    if (videoUrl) {
-        const videoButton = new ButtonBuilder()
-            .setLabel('View Video')
-            .setEmoji('🎥')
+    if (mediaLink) {
+        const mediaButton = new ButtonBuilder()
+            .setLabel('View Media')
+            .setEmoji('📂')
             .setStyle(ButtonStyle.Link)
-            .setURL(videoUrl);
-        row.addComponents(videoButton);
+            .setURL(mediaLink);
+        row.addComponents(mediaButton);
     }
 
     const displayChannel = interaction.guild.channels.cache.get(settings.deviceDisplayChannelId);
@@ -187,10 +190,10 @@ async function handleEditDeviceListing(interaction) {
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
-    const videoInput = new TextInputBuilder()
-        .setCustomId('video_url')
-        .setLabel('Video URL')
-        .setPlaceholder('Paste Discord CDN or video link here')
+    const mediaInput = new TextInputBuilder()
+        .setCustomId('media_link')
+        .setLabel('Media Link (Discord Message Link)')
+        .setPlaceholder('Right click message in video dump → Copy Message Link')
         .setStyle(TextInputStyle.Short)
         .setRequired(false);
 
@@ -199,7 +202,7 @@ async function handleEditDeviceListing(interaction) {
         new ActionRowBuilder().addComponents(conditionInput),
         new ActionRowBuilder().addComponents(priceInput),
         new ActionRowBuilder().addComponents(specsInput),
-        new ActionRowBuilder().addComponents(videoInput),
+        new ActionRowBuilder().addComponents(mediaInput),
     );
 
     await interaction.showModal(modal);
@@ -212,7 +215,7 @@ async function handleEditDeviceModal(interaction, messageId) {
     const condition = interaction.fields.getTextInputValue('condition');
     const price = interaction.fields.getTextInputValue('price');
     const specs = interaction.fields.getTextInputValue('specs');
-    const videoUrl = interaction.fields.getTextInputValue('video_url') || null;
+    const mediaLink = interaction.fields.getTextInputValue('media_link') || null;
 
     const vendorName = interaction.member.displayName || interaction.user.username;
 
@@ -229,6 +232,7 @@ async function handleEditDeviceModal(interaction, messageId) {
 
         const updatedEmbed = new EmbedBuilder()
             .setTitle('📱 Device For Sale')
+            .setImage(BANNER_URL)
             .setDescription(
                 `📱 **Device**\n**${deviceName}**\n\n` +
                 `✨ **Condition**\n**${condition}**\n\n` +
@@ -253,13 +257,13 @@ async function handleEditDeviceModal(interaction, messageId) {
 
         const row = new ActionRowBuilder().addComponents(ticketButton, editButton);
 
-        if (videoUrl) {
-            const videoButton = new ButtonBuilder()
-                .setLabel('View Video')
-                .setEmoji('🎥')
+        if (mediaLink) {
+            const mediaButton = new ButtonBuilder()
+                .setLabel('View Media')
+                .setEmoji('📂')
                 .setStyle(ButtonStyle.Link)
-                .setURL(videoUrl);
-            row.addComponents(videoButton);
+                .setURL(mediaLink);
+            row.addComponents(mediaButton);
         }
 
         await message.edit({ embeds: [updatedEmbed], components: [row] });
