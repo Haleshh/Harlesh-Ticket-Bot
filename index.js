@@ -14,12 +14,16 @@ const {
     handlePostAccountModal,
     handleEditAccountListing,
     handleEditAccountModal,
+    handleMarkSoldAccount,
+    handlePhotoUpload,
 } = require('./commands/postAccount');
 const {
     handlePostDevice,
     handlePostDeviceModal,
     handleEditDeviceListing,
     handleEditDeviceModal,
+    handleMarkSoldDevice,
+    handlePhotoUploadDevice,
 } = require('./commands/postDevice');
 const {
     showBuySelector,
@@ -60,6 +64,44 @@ const client = new Client({
 client.once('clientReady', () => {
     console.log(`✅ Logged in as ${client.user.tag}`);
     client.user.setActivity('🎫 Managing Tickets', { type: 3 });
+});
+
+// ---- MESSAGE CREATE (Photo Upload Detection) ----
+client.on('messageCreate', async (message) => {
+    if (message.author.bot) return;
+    if (!message.channel.isThread()) return;
+    if (!message.attachments.size) return;
+
+    try {
+        const settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
+        const threadName = message.channel.name;
+
+        if (!threadName.includes('Controls')) return;
+
+        // Check if it's an account or device thread based on recent listing
+        const threadMessages = await message.channel.messages.fetch({ limit: 20 });
+
+        const accountListing = threadMessages.find(m =>
+            m.embeds.length > 0 &&
+            m.embeds[0]?.title?.includes('Account') &&
+            m.embeds[0]?.footer?.text?.includes('Listing ID:')
+        );
+
+        const deviceListing = threadMessages.find(m =>
+            m.embeds.length > 0 &&
+            m.embeds[0]?.title?.includes('Device') &&
+            m.embeds[0]?.footer?.text?.includes('Listing ID:')
+        );
+
+        if (accountListing) {
+            await handlePhotoUpload(message, settings);
+        } else if (deviceListing) {
+            await handlePhotoUploadDevice(message, settings);
+        }
+
+    } catch (err) {
+        console.error('Photo upload error:', err);
+    }
 });
 
 // ---- INTERACTIONS ----
@@ -220,13 +262,11 @@ client.on('interactionCreate', async (interaction) => {
                 return showSupportSelector(interaction);
             }
 
-            // OPEN TICKET FROM ACCOUNT LISTING
             if (interaction.customId.startsWith('open_buy_listing_account_')) {
                 incrementTotalTickets();
                 return showBuySelectorFromListing(interaction, 'account', interaction.customId.replace('open_buy_listing_account_', ''));
             }
 
-            // OPEN TICKET FROM DEVICE LISTING
             if (interaction.customId.startsWith('open_buy_listing_device_')) {
                 incrementTotalTickets();
                 return showBuySelectorFromListing(interaction, 'device', interaction.customId.replace('open_buy_listing_device_', ''));
@@ -266,12 +306,26 @@ client.on('interactionCreate', async (interaction) => {
                 return handleCancelClose(interaction);
             }
 
+            // EDIT ACCOUNT LISTING
             if (interaction.customId.startsWith('edit_account_')) {
                 return handleEditAccountListing(interaction);
             }
 
+            // EDIT DEVICE LISTING
             if (interaction.customId.startsWith('edit_device_')) {
                 return handleEditDeviceListing(interaction);
+            }
+
+            // MARK SOLD ACCOUNT
+            if (interaction.customId.startsWith('mark_sold_account_')) {
+                const messageId = interaction.customId.replace('mark_sold_account_', '');
+                return handleMarkSoldAccount(interaction, messageId);
+            }
+
+            // MARK SOLD DEVICE
+            if (interaction.customId.startsWith('mark_sold_device_')) {
+                const messageId = interaction.customId.replace('mark_sold_device_', '');
+                return handleMarkSoldDevice(interaction, messageId);
             }
         }
 
@@ -293,16 +347,13 @@ client.on('interactionCreate', async (interaction) => {
                 return showTicketModal(interaction, category);
             }
 
-            // BUY FROM LISTING SELECT MENU
             if (interaction.customId.startsWith('buy_from_listing_')) {
                 const parts = interaction.customId.split('_');
-                // Format: buy_from_listing_{type}_{vendorId}_{messageId}_{channelId}
                 const listingType = parts[3];
                 const vendorId = parts[4];
                 const messageId = parts[5];
                 const channelId = parts[6];
                 const category = interaction.values[0];
-
                 return showTicketModalFromListing(interaction, category, listingType, vendorId, messageId, channelId);
             }
         }
@@ -329,12 +380,8 @@ client.on('interactionCreate', async (interaction) => {
                 return handleEditDeviceModal(interaction, messageId);
             }
 
-            // TICKET FROM LISTING MODAL
             if (customId.startsWith('ticket_modal_listing_')) {
                 const withoutPrefix = customId.replace('ticket_modal_listing_', '');
-                const parts = withoutPrefix.split('_');
-                // Format: {category}_{listingType}_{vendorId}_{messageId}_{channelId}
-                // category can be buy_codm or buy_device so we need to handle carefully
                 let category, listingType, vendorId, messageId, channelId;
 
                 if (withoutPrefix.startsWith('buy_codm')) {
@@ -358,7 +405,6 @@ client.on('interactionCreate', async (interaction) => {
                     fields[field.customId] = field.value;
                 });
 
-                // Fetch listing details for reference
                 let listingReference = null;
                 try {
                     const listingChannel = interaction.guild.channels.cache.get(channelId);
@@ -381,7 +427,6 @@ client.on('interactionCreate', async (interaction) => {
                 return createTicketChannel(interaction, category, fields, listingReference);
             }
 
-            // REGULAR TICKET MODALS
             if (customId.startsWith('ticket_modal_')) {
                 const category = customId.replace('ticket_modal_', '');
                 const fields = {};
