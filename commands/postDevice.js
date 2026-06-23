@@ -86,7 +86,6 @@ async function handlePostDeviceModal(interaction) {
 
     const vendorName = interaction.member.displayName || interaction.user.username;
 
-    // Build public listing embed
     const listingEmbed = new EmbedBuilder()
         .setTitle('📱 Device For Sale')
         .setImage(BANNER_URL)
@@ -100,7 +99,6 @@ async function handlePostDeviceModal(interaction) {
         .setFooter({ text: `Posted by ${vendorName} • Harlesh Marketplace Solutions` })
         .setTimestamp();
 
-    // Public buttons — no edit, no mark as sold
     const ticketButton = new ButtonBuilder()
         .setCustomId(`open_buy_listing_device_${interaction.user.id}`)
         .setLabel('Open a Ticket')
@@ -118,7 +116,6 @@ async function handlePostDeviceModal(interaction) {
         publicRow.addComponents(mediaButton);
     }
 
-    // Send to public display channel
     const displayChannel = interaction.guild.channels.cache.get(settings.deviceDisplayChannelId);
     if (!displayChannel) {
         return interaction.reply({
@@ -127,22 +124,25 @@ async function handlePostDeviceModal(interaction) {
         });
     }
 
+    // Send ping first then listing
+    await displayChannel.send({
+        content: `<@&${settings.deviceBuyerRoleId}> 📱 New Device listing just dropped!`,
+    });
+
     const publicMessage = await displayChannel.send({
         embeds: [listingEmbed],
         components: [publicRow],
     });
 
-    // Find or create vendor thread in vendor chat
+    // Find or create vendor thread
     const vendorChatChannel = interaction.guild.channels.cache.get(settings.vendorChatChannelId);
     if (vendorChatChannel) {
         try {
-            // Check for existing vendor thread
             await vendorChatChannel.threads.fetchActive();
             let vendorThread = vendorChatChannel.threads.cache.find(
                 t => t.name === `📋 ${vendorName} Controls`
             );
 
-            // Create thread if it doesn't exist
             if (!vendorThread) {
                 vendorThread = await vendorChatChannel.threads.create({
                     name: `📋 ${vendorName} Controls`,
@@ -150,14 +150,11 @@ async function handlePostDeviceModal(interaction) {
                     reason: `Vendor controls thread for ${vendorName}`,
                 });
                 await vendorThread.members.add(interaction.user.id);
-
-                // Welcome message
                 await vendorThread.send({
                     content: `👋 Welcome ${interaction.user}! This is your private vendor control panel. All your listing controls will appear here.`,
                 });
             }
 
-            // Thread listing summary embed
             const threadEmbed = new EmbedBuilder()
                 .setTitle('📱 New Device Listing Posted!')
                 .setDescription(
@@ -170,7 +167,6 @@ async function handlePostDeviceModal(interaction) {
                 .setFooter({ text: `Listing ID: ${publicMessage.id}` })
                 .setTimestamp();
 
-            // Vendor control buttons
             const editButton = new ButtonBuilder()
                 .setCustomId(`edit_device_${interaction.user.id}_${publicMessage.id}`)
                 .setLabel('Edit Listing')
@@ -190,7 +186,6 @@ async function handlePostDeviceModal(interaction) {
                 components: [vendorRow],
             });
 
-            // Photo upload prompt
             await vendorThread.send({
                 content: `📸 **Want to add a product photo to this listing?**\nUpload your photo here and I'll add it to your listing automatically!`,
             });

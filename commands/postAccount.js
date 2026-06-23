@@ -86,7 +86,6 @@ async function handlePostAccountModal(interaction) {
 
     const vendorName = interaction.member.displayName || interaction.user.username;
 
-    // Build public listing embed
     const listingEmbed = new EmbedBuilder()
         .setTitle('🛒 CODM Account For Sale')
         .setImage(BANNER_URL)
@@ -100,7 +99,6 @@ async function handlePostAccountModal(interaction) {
         .setFooter({ text: `Posted by ${vendorName} • Harlesh Marketplace Solutions` })
         .setTimestamp();
 
-    // Public buttons — no edit, no mark as sold
     const ticketButton = new ButtonBuilder()
         .setCustomId(`open_buy_listing_account_${interaction.user.id}`)
         .setLabel('Open a Ticket')
@@ -118,7 +116,6 @@ async function handlePostAccountModal(interaction) {
         publicRow.addComponents(mediaButton);
     }
 
-    // Send to public display channel
     const displayChannel = interaction.guild.channels.cache.get(settings.accountDisplayChannelId);
     if (!displayChannel) {
         return interaction.reply({
@@ -127,22 +124,25 @@ async function handlePostAccountModal(interaction) {
         });
     }
 
+    // Send ping first then listing
+    await displayChannel.send({
+        content: `<@&${settings.accountBuyerRoleId}> 🛒 New CODM Account listing just dropped!`,
+    });
+
     const publicMessage = await displayChannel.send({
         embeds: [listingEmbed],
         components: [publicRow],
     });
 
-    // Find or create vendor thread in vendor chat
+    // Find or create vendor thread
     const vendorChatChannel = interaction.guild.channels.cache.get(settings.vendorChatChannelId);
     if (vendorChatChannel) {
         try {
-            // Check for existing vendor thread
             await vendorChatChannel.threads.fetchActive();
             let vendorThread = vendorChatChannel.threads.cache.find(
                 t => t.name === `📋 ${vendorName} Controls`
             );
 
-            // Create thread if it doesn't exist
             if (!vendorThread) {
                 vendorThread = await vendorChatChannel.threads.create({
                     name: `📋 ${vendorName} Controls`,
@@ -150,14 +150,11 @@ async function handlePostAccountModal(interaction) {
                     reason: `Vendor controls thread for ${vendorName}`,
                 });
                 await vendorThread.members.add(interaction.user.id);
-
-                // Welcome message
                 await vendorThread.send({
                     content: `👋 Welcome ${interaction.user}! This is your private vendor control panel. All your listing controls will appear here.`,
                 });
             }
 
-            // Thread listing summary embed
             const threadEmbed = new EmbedBuilder()
                 .setTitle('🛒 New Account Listing Posted!')
                 .setDescription(
@@ -170,7 +167,6 @@ async function handlePostAccountModal(interaction) {
                 .setFooter({ text: `Listing ID: ${publicMessage.id}` })
                 .setTimestamp();
 
-            // Vendor control buttons
             const editButton = new ButtonBuilder()
                 .setCustomId(`edit_account_${interaction.user.id}_${publicMessage.id}`)
                 .setLabel('Edit Listing')
@@ -190,7 +186,6 @@ async function handlePostAccountModal(interaction) {
                 components: [vendorRow],
             });
 
-            // Photo upload prompt
             await vendorThread.send({
                 content: `📸 **Want to add a product photo to this listing?**\nUpload your photo here and I'll add it to your listing automatically!`,
             });
@@ -207,7 +202,6 @@ async function handlePostAccountModal(interaction) {
 }
 
 async function handleEditAccountListing(interaction) {
-    // Extract vendor ID and message ID from customId
     const parts = interaction.customId.replace('edit_account_', '').split('_');
     const posterId = parts[0];
     const messageId = parts[1];
@@ -219,7 +213,6 @@ async function handleEditAccountListing(interaction) {
         });
     }
 
-    // Fetch current listing to pre-fill form
     const settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
     const displayChannel = interaction.guild.channels.cache.get(settings.accountDisplayChannelId);
 
@@ -370,7 +363,6 @@ async function handleMarkSoldAccount(interaction, messageId) {
         const message = await displayChannel.messages.fetch(messageId);
         const currentEmbed = message.embeds[0];
 
-        // Update embed to show SOLD
         const soldEmbed = new EmbedBuilder()
             .setTitle('🔴 SOLD — CODM Account')
             .setImage(BANNER_URL)
@@ -379,7 +371,6 @@ async function handleMarkSoldAccount(interaction, messageId) {
             .setFooter({ text: currentEmbed.footer?.text || 'Harlesh Marketplace Solutions' })
             .setTimestamp();
 
-        // Remove ticket button, keep media if exists
         const soldRow = new ActionRowBuilder();
 
         const soldButton = new ButtonBuilder()
@@ -391,7 +382,6 @@ async function handleMarkSoldAccount(interaction, messageId) {
 
         soldRow.addComponents(soldButton);
 
-        // Keep media button if it exists
         const mediaButton = message.components[0]?.components?.find(c => c.label === 'View Media');
         if (mediaButton) {
             const newMediaButton = new ButtonBuilder()
@@ -404,7 +394,6 @@ async function handleMarkSoldAccount(interaction, messageId) {
 
         await message.edit({ embeds: [soldEmbed], components: [soldRow] });
 
-        // Update thread message
         await interaction.update({
             embeds: [
                 new EmbedBuilder()
@@ -426,23 +415,21 @@ async function handleMarkSoldAccount(interaction, messageId) {
 }
 
 async function handlePhotoUpload(message, settings) {
-    // Check if message is in a vendor thread
     if (!message.channel.isThread()) return;
     if (!message.attachments.size) return;
 
     const threadName = message.channel.name;
     if (!threadName.includes('Controls')) return;
 
-    // Check if attachment is an image
     const imageAttachment = message.attachments.find(a =>
         a.contentType && a.contentType.startsWith('image/')
     );
     if (!imageAttachment) return;
 
-    // Find the most recent listing message in the thread
     const threadMessages = await message.channel.messages.fetch({ limit: 20 });
     const listingMessage = threadMessages.find(m =>
         m.embeds.length > 0 &&
+        m.embeds[0]?.title?.includes('Account') &&
         m.embeds[0]?.footer?.text?.includes('Listing ID:')
     );
 
@@ -450,7 +437,6 @@ async function handlePhotoUpload(message, settings) {
 
     const listingId = listingMessage.embeds[0].footer.text.replace('Listing ID: ', '');
 
-    // Find listing in display channel
     const displayChannel = message.guild.channels.cache.get(settings.accountDisplayChannelId);
     if (!displayChannel) return;
 

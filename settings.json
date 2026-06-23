@@ -7,6 +7,8 @@
     "accountDisplayChannelId": "1502941259893833799",
     "deviceDisplayChannelId": "1504373499362283614",
     "vendorChatChannelId": "1504271644078772244",
+    "accountBuyerRoleId": "1502223760168714260",
+    "deviceBuyerRoleId": "1502227881734963241",
     "panelTitle": "🎫 Support Tickets",
     "panelDescription": "Welcome to Harlesh CODM Marketplace!\nClick a button below to open a ticket.",
     "panelColor": "5865F2",
